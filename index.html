@@ -510,6 +510,16 @@ const DB = {
     return {error};
   },
 
+  async actualizarDiaSolicitud(solicitudId, nuevoDia){
+    if(DEMO_MODE){
+      const s = DEMO.solicitudes.find(s=>s.id===solicitudId);
+      if(s) s.dia = nuevoDia;
+      return {error:null};
+    }
+    const {error} = await sb.from("solicitudes").update({dia: nuevoDia}).eq("id", solicitudId);
+    return {error};
+  },
+
   async crearReporte(payload){
     if(DEMO_MODE){ DEMO.reportes.push(payload); return {error:null}; }
     const {error} = await sb.from("reportes").insert(payload);
@@ -1070,7 +1080,7 @@ function mostrarResumenReporte(resumen){
 /* =========================================================
    4) SOLICITUDES
    ========================================================= */
-const SOL = { profesorId:null, claseId:null, salon:"", hora:"", horaFin:"", jornada:"AM", dia:null, carrito:[], itemsCatalogo:[] };
+const SOL = { profesorId:null, claseId:null, salon:"", hora:"", horaFin:"", jornada:"", dia:null, carrito:[], itemsCatalogo:[] };
 const FILTRO_SOLICITUDES = { dia:"" };
 let solicitudesChannel = null;
 
@@ -1109,6 +1119,7 @@ async function viewSolicitudes(main){
   if(!SOL.salon) SOL.salon = clases.find(c=>c.id===SOL.claseId)?.salon_defecto || "";
   if(!SOL.hora) SOL.hora = clases.find(c=>c.id===SOL.claseId)?.hora_defecto || "";
   if(!SOL.horaFin) SOL.horaFin = clases.find(c=>c.id===SOL.claseId)?.hora_fin_defecto || "";
+  if(!SOL.jornada) SOL.jornada = clases.find(c=>c.id===SOL.claseId)?.jornada || "";
   suscribirSolicitudesEnVivo();
 
   main.innerHTML = `
@@ -1117,7 +1128,7 @@ async function viewSolicitudes(main){
     <div class="card">
       ${session.rol==="coordinadora" ? `
         <label>Profesor</label>
-        <select onchange="SOL.profesorId=this.value; SOL.claseId=null; SOL.salon=''; SOL.hora=''; SOL.horaFin=''; loadTab('solicitudes')">
+        <select onchange="SOL.profesorId=this.value; SOL.claseId=null; SOL.salon=''; SOL.hora=''; SOL.horaFin=''; SOL.jornada=''; loadTab('solicitudes')">
           ${profesores.map(p=>`<option value="${p.id}" ${p.id===SOL.profesorId?"selected":""}>${p.nombre}</option>`).join("")}
         </select>` : ""}
       <div class="grid-2">
@@ -1128,17 +1139,15 @@ async function viewSolicitudes(main){
           </select>
           <label>Salón</label>
           <input id="solSalonInput" type="text" placeholder="Ej: Salón 204" value="${SOL.salon || clases.find(c=>c.id===SOL.claseId)?.salon_defecto || ""}" oninput="SOL.salon=this.value">
-          <label>Hora de la clase</label>
-          <input id="solHoraInput" type="time" value="${SOL.hora || clases.find(c=>c.id===SOL.claseId)?.hora_defecto || ""}" oninput="SOL.hora=this.value; refreshCatalogo()">
-          <label>Hora fin de la clase</label>
-          <input id="solHoraFinInput" type="time" value="${SOL.horaFin || clases.find(c=>c.id===SOL.claseId)?.hora_fin_defecto || ""}" oninput="SOL.horaFin=this.value; refreshCatalogo()">
+          <label>Hora de la clase (según la clase seleccionada)</label>
+          <input id="solHoraInput" type="time" value="${SOL.hora || clases.find(c=>c.id===SOL.claseId)?.hora_defecto || ""}" disabled style="background:#f4f8ec; color:var(--verde-oscuro); font-weight:600;">
+          <div style="display:none">
+            <input id="solHoraFinInput" type="time" value="${SOL.horaFin || clases.find(c=>c.id===SOL.claseId)?.hora_fin_defecto || ""}" disabled>
+          </div>
         </div>
         <div>
-          <label>Jornada</label>
-          <select onchange="SOL.jornada=this.value">
-            <option value="AM" ${SOL.jornada==="AM"?"selected":""}>AM</option>
-            <option value="PM" ${SOL.jornada==="PM"?"selected":""}>PM</option>
-          </select>
+          <label>Jornada (según la clase seleccionada)</label>
+          <input id="solJornadaInput" type="text" value="${SOL.jornada || clases.find(c=>c.id===SOL.claseId)?.jornada || ""}" disabled style="background:#f4f8ec; color:var(--verde-oscuro); font-weight:600;">
           <label>Día para el que se solicita</label>
           <input type="date" value="${SOL.dia}" onchange="SOL.dia=this.value; refreshCatalogo()">
         </div>
@@ -1176,9 +1185,11 @@ function onClaseSolicitudChange(claseId){
   const salonInput = document.getElementById("solSalonInput");
   const horaInput = document.getElementById("solHoraInput");
   const horaFinInput = document.getElementById("solHoraFinInput");
+  const jornadaInput = document.getElementById("solJornadaInput");
   if(salonInput){ salonInput.value = clase?.salon_defecto || ""; SOL.salon = salonInput.value; }
   if(horaInput){ horaInput.value = clase?.hora_defecto || ""; SOL.hora = horaInput.value; }
   if(horaFinInput){ horaFinInput.value = clase?.hora_fin_defecto || ""; SOL.horaFin = horaFinInput.value; }
+  if(jornadaInput){ jornadaInput.value = clase?.jornada || ""; SOL.jornada = jornadaInput.value; }
   refreshCatalogo();
 }
 
@@ -1256,9 +1267,37 @@ async function renderListaSolicitudes(){
       <td>${s.dia} · ${s.hora}${s.hora_fin ? " a "+s.hora_fin : ""}</td>
       <td>${s.jornada}</td>
       <td>${(s.solicitud_items||[]).map(i=>`${i.items_catalogo?.nombre} ×${i.cantidad}`).join(", ")}</td>
-      ${esCoordinadora ? `<td><button class="btn-secondary" style="font-size:.72rem; padding:4px 9px; border-color:#b0413e; color:#b0413e;" onclick="eliminarSolicitudClick('${s.id}')">Eliminar</button></td>` : ""}
+      ${esCoordinadora ? `<td style="white-space:nowrap;">
+        <button class="btn-secondary" style="font-size:.72rem; padding:4px 9px; margin-right:4px;" onclick="editarDiaSolicitudClick('${s.id}', '${s.dia}')">Editar día</button>
+        <button class="btn-secondary" style="font-size:.72rem; padding:4px 9px; border-color:#b0413e; color:#b0413e;" onclick="eliminarSolicitudClick('${s.id}')">Eliminar</button>
+      </td>` : ""}
     </tr>`).join("") || `<tr><td colspan="${esCoordinadora ? 8 : 7}" style="color:#999;font-style:italic">Sin solicitudes registradas</td></tr>`}
   </table></div>`;
+}
+
+function editarDiaSolicitudClick(id, diaActual){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="pin-box">
+      <h3>Editar día de la solicitud</h3>
+      <p>Elige la nueva fecha para la que se requiere esta solicitud</p>
+      <input id="nuevoDiaSolicitud" type="date" value="${diaActual}" style="margin-bottom:14px;">
+      <button class="btn-primary" style="width:100%;" onclick="guardarNuevoDiaSolicitud('${id}')">Guardar</button>
+      <button class="btn-secondary" style="width:100%; margin-top:8px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function guardarNuevoDiaSolicitud(id){
+  const nuevoDia = document.getElementById("nuevoDiaSolicitud").value;
+  if(!nuevoDia) return;
+  const {error} = await DB.actualizarDiaSolicitud(id, nuevoDia);
+  if(error){ toast("Error al actualizar: "+error.message); return; }
+  document.querySelector(".modal-overlay").remove();
+  toast("Fecha de la solicitud actualizada.");
+  await refreshCatalogo();
+  await renderListaSolicitudes();
 }
 
 async function eliminarSolicitudClick(id){

@@ -130,9 +130,9 @@
   .mp-hdr-badge{ background:rgba(133,159,61,.35); color:var(--verde-suave); font-size:10px; font-weight:700; padding:2px 8px; border-radius:9px; border:1px solid rgba(133,159,61,.5); }
   .mp-bdy{ padding:18px 16px 14px; text-align:center; }
   .mp-av{
-    width:76px; height:76px; border-radius:50%; margin:0 auto 11px; border:2px solid var(--verde-claro);
-    box-shadow:0 0 0 5px rgba(133,159,61,.1); display:flex; align-items:center; justify-content:center;
-    background:#f4f8ec; overflow:hidden; font-family:'Playfair Display',serif; font-size:26px; color:var(--verde-claro); font-weight:700;
+    width:108px; height:108px; border-radius:50%; margin:0 auto 12px; border:3px solid var(--verde-claro);
+    box-shadow:0 0 0 6px rgba(133,159,61,.1); display:flex; align-items:center; justify-content:center;
+    background:#f4f8ec; overflow:hidden; font-family:'Playfair Display',serif; font-size:36px; color:var(--verde-claro); font-weight:700;
   }
   .mp-av img{ width:100%; height:100%; object-fit:cover; border-radius:50%; }
   .mp-name{ font-family:'Playfair Display',serif; font-size:16px; font-weight:700; color:var(--verde-oscuro); margin-bottom:6px; }
@@ -1376,7 +1376,7 @@ async function viewMusicPass(main){
   `;
   document.getElementById("qrShell").innerHTML = "";
   new QRCode(document.getElementById("qrShell"), {
-    text: `UIS-MUSICA-2026-2:${session.id}`, width:110, height:110,
+    text: `UIS-MUSICA-2026-2:${session.id}`, width:80, height:80,
     colorDark:"#31511E", colorLight:"#ffffff",
   });
 }

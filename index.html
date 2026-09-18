@@ -1071,6 +1071,7 @@ function mostrarResumenReporte(resumen){
    4) SOLICITUDES
    ========================================================= */
 const SOL = { profesorId:null, claseId:null, salon:"", hora:"", horaFin:"", jornada:"AM", dia:null, carrito:[], itemsCatalogo:[] };
+const FILTRO_SOLICITUDES = { dia:"" };
 let solicitudesChannel = null;
 
 function suscribirSolicitudesEnVivo(){
@@ -1151,6 +1152,13 @@ async function viewSolicitudes(main){
       <button class="btn-primary" style="margin-top:10px" onclick="enviarSolicitud()">ENVIAR</button>
     </div>` : ""}
     <h3 class="section-title">${session.rol==="profesor" ? "Mis solicitudes" : "Todas las solicitudes"}</h3>
+    <div class="card" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+      <div style="flex:1; min-width:160px;">
+        <label>Filtrar por día</label>
+        <input id="filtroDiaSolicitudes" type="date" value="${FILTRO_SOLICITUDES.dia || ""}" onchange="FILTRO_SOLICITUDES.dia=this.value; renderListaSolicitudes()">
+      </div>
+      <button class="btn-secondary" onclick="FILTRO_SOLICITUDES.dia=''; document.getElementById('filtroDiaSolicitudes').value=''; renderListaSolicitudes()">Ver todas</button>
+    </div>
     <div id="listaSolicitudesWrap"></div>
   `;
   if(window.__solHoraTimer) clearInterval(window.__solHoraTimer);
@@ -1235,7 +1243,8 @@ async function enviarSolicitud(){
 async function renderListaSolicitudes(){
   const wrap = document.getElementById("listaSolicitudesWrap");
   if(!wrap) return;
-  const data = await DB.getSolicitudes(session.rol==="profesor" ? session.id : null);
+  let data = await DB.getSolicitudes(session.rol==="profesor" ? session.id : null);
+  if(FILTRO_SOLICITUDES.dia) data = data.filter(s => s.dia === FILTRO_SOLICITUDES.dia);
   const esCoordinadora = session.rol === "coordinadora";
   wrap.innerHTML = `<div class="table-scroll"><table>
     <tr><th>Fecha solicitud</th><th>Profesor</th><th>Clase</th><th>Salón</th><th>Día/Hora</th><th>Jornada</th><th>Elementos</th>${esCoordinadora ? "<th></th>" : ""}</tr>
